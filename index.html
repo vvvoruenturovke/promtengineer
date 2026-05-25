@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Конструктор промптов — собери и скопируй</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background: #f3f4f6; }
+        .card { transition: all 0.2s; }
+        .card:focus-within { box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body class="font-sans antialiased">
+
+<div class="max-w-6xl mx-auto p-6">
+    <!-- Шапка -->
+    <div class="text-center mb-8">
+        <h1 class="text-4xl font-extrabold text-gray-900">🧠 Конструктор промптов</h1>
+        <p class="text-gray-600 mt-2">Заполни нужные поля → нажми «Собрать промпт» → скопируй готовый запрос</p>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <!-- ЛЕВАЯ КОЛОНКА: ФОРМЫ -->
+        <div class="space-y-6">
+            <!-- ================= СЕКЦИЯ: Языковая модель ================= -->
+            <div class="bg-white rounded-xl shadow-md p-5 card">
+                <h2 class="text-xl font-bold text-indigo-700 mb-3 flex items-center gap-2">💬 Языковая модель</h2>
+                
+                <label class="block mt-3 font-semibold">Роль и контекст</label>
+                <textarea id="lm_role" rows="2" class="w-full border rounded-lg p-2 text-sm" placeholder="Ты — эксперт по маркетингу с 10-летним опытом в e-commerce. Контекст: пользователь — владелец небольшого магазина."></textarea>
+                
+                <label class="block mt-3 font-semibold">Конкретная задача</label>
+                <textarea id="lm_task" rows="2" class="w-full border rounded-lg p-2 text-sm" placeholder="Что нужно сделать: напиши пост для Instagram. Что НЕ нужно делать: не используй эмодзи, не обещай быстрых результатов."></textarea>
+                
+                <label class="block mt-3 font-semibold">Входные данные (если есть)</label>
+                <textarea id="lm_input" rows="2" class="w-full border rounded-lg p-2 text-sm" placeholder="Вставь текст, ссылку, таблицу..."></textarea>
+                
+                <div class="grid grid-cols-2 gap-3 mt-2">
+                    <div><label class="block font-semibold">Формат вывода</label><input id="lm_format" class="w-full border rounded p-2 text-sm" placeholder="маркированный список / JSON"></div>
+                    <div><label class="block font-semibold">Объём</label><input id="lm_volume" class="w-full border rounded p-2 text-sm" placeholder="max 10 предложений"></div>
+                </div>
+                <div><label class="block font-semibold mt-2">Стиль</label><input id="lm_style" class="w-full border rounded p-2 text-sm" placeholder="академический / разговорный"></div>
+                
+                <label class="block mt-3 font-semibold">Метод рассуждения</label>
+                <select id="lm_method" class="w-full border rounded p-2 text-sm">
+                    <option value="">Не требуется</option>
+                    <option>Шаг за шагом (chain-of-thought)</option>
+                    <option>Самокритика — после ответа оцени по шкале 1-5</option>
+                    <option>Декомпозиция — разбей на подзадачи</option>
+                </select>
+                
+                <label class="block mt-3 font-semibold">Защита от ошибок</label>
+                <input id="lm_safety" class="w-full border rounded p-2 text-sm" placeholder="Если не уверен — скажи 'не знаю'. Не выдумывай факты.">
+            </div>
+            
+            <!-- ================= СЕКЦИЯ: Генерация изображений ================= -->
+            <div class="bg-white rounded-xl shadow-md p-5 card">
+                <h2 class="text-xl font-bold text-pink-600 mb-3 flex items-center gap-2">🎨 Генерация изображений</h2>
+                <div class="space-y-2">
+                    <div><label class="font-semibold">Главный объект</label><input id="img_object" class="w-full border rounded p-2 text-sm" placeholder="киберпанк-кот, две фигуры"></div>
+                    <div><label class="font-semibold">Состояние и детали</label><input id="img_state" class="w-full border rounded p-2 text-sm" placeholder="молодой, радостный, в очках"></div>
+                    <div><label class="font-semibold">Окружение</label><input id="img_env" class="w-full border rounded p-2 text-sm" placeholder="неоновая улица, ночь, дождь"></div>
+                    <div><label class="font-semibold">Композиция / ракурс</label><input id="img_composition" class="w-full border rounded p-2 text-sm" placeholder="крупный план, вид снизу"></div>
+                    <div><label class="font-semibold">Освещение</label><input id="img_light" class="w-full border rounded p-2 text-sm" placeholder="неоновый свет, контражур"></div>
+                    <div><label class="font-semibold">Стиль и медиум</label><input id="img_style" class="w-full border rounded p-2 text-sm" placeholder="фотореализм, киберпанк, как у Блохэма"></div>
+                    <div><label class="font-semibold">Параметры</label><input id="img_params" class="w-full border rounded p-2 text-sm" placeholder="16:9, строгое соблюдение"></div>
+                    <div><label class="font-semibold">Запреты</label><input id="img_forbidden" class="w-full border rounded p-2 text-sm" placeholder="без текста, без воды"></div>
+                </div>
+            </div>
+            
+            <!-- ================= СЕКЦИЯ: Генерация кода ================= -->
+            <div class="bg-white rounded-xl shadow-md p-5 card">
+                <h2 class="text-xl font-bold text-green-700 mb-3 flex items-center gap-2">💻 Генерация кода</h2>
+                <div><label class="font-semibold">Задача</label><input id="code_task" class="w-full border rounded p-2 text-sm" placeholder="создать функцию сортировки"></div>
+                <div><label class="font-semibold mt-2">Сигнатура</label><input id="code_sig" class="w-full border rounded p-2 text-sm" placeholder="def sort(arr: list) -> list"></div>
+                <div><label class="font-semibold mt-2">Входные данные</label><input id="code_input" class="w-full border rounded p-2 text-sm" placeholder="list[int], может быть пустой"></div>
+                <div><label class="font-semibold mt-2">Выходные данные</label><input id="code_output" class="w-full border rounded p-2 text-sm" placeholder="отсортированный list[int]"></div>
+                <div class="grid grid-cols-2 gap-2 mt-2">
+                    <div><label class="font-semibold">Язык</label><input id="code_lang" class="w-full border rounded p-2 text-sm" placeholder="Python 3.12"></div>
+                    <div><label class="font-semibold">Фреймворк</label><input id="code_framework" class="w-full border rounded p-2 text-sm" placeholder="FastAPI / none"></div>
+                </div>
+                <div><label class="font-semibold mt-2">Стиль кода</label><input id="code_style" class="w-full border rounded p-2 text-sm" placeholder="PEP 8 / Airbnb"></div>
+                <div><label class="font-semibold mt-2">Edge cases (через запятую)</label><input id="code_edges" class="w-full border rounded p-2 text-sm" placeholder="None, пустой список, дубликаты"></div>
+                <div class="flex gap-4 mt-2 text-sm flex-wrap">
+                    <label><input type="checkbox" id="code_typehints"> type hints</label>
+                    <label><input type="checkbox" id="code_docstrings"> docstrings</label>
+                    <label><input type="checkbox" id="code_errors"> обработка ошибок</label>
+                    <label><input type="checkbox" id="code_tests"> тесты</label>
+                </div>
+                <div class="mt-2"><label class="font-semibold">Пример (few-shot)</label><textarea id="code_example" rows="2" class="w-full border rounded p-2 text-sm" placeholder="Вход: [1,2,3] -> Выход: [1,2,3] (уже отсортирован)"></textarea></div>
+            </div>
+            
+            <!-- КНОПКА СБОРА ПРОМПТА -->
+            <div class="flex justify-center">
+                <button id="buildBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-xl shadow-lg transition transform hover:scale-105 text-lg">
+                    ✨ Собрать промпт
+                </button>
+            </div>
+        </div>
+        
+        <!-- ПРАВАЯ КОЛОНКА: ВЫВОД ПРОМПТА -->
+        <div class="bg-white rounded-xl shadow-md p-5 sticky top-6 h-fit card">
+            <h2 class="text-xl font-bold text-gray-800 mb-3 flex justify-between items-center">
+                📋 Готовый промпт
+                <button id="copyBtn" class="bg-gray-200 hover:bg-gray-300 text-sm px-3 py-1 rounded-full transition">Копировать</button>
+            </h2>
+            <div class="bg-gray-50 border rounded-lg p-4 font-mono text-sm whitespace-pre-wrap min-h-[400px] max-h-[600px] overflow-auto" id="promptOutput">
+                // Нажмите «Собрать промпт» — здесь появится результат
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Функция генерации итогового промпта из текущих полей
+    function generatePrompt() {
+        let prompt = "";
+        
+        // ---- 1. Языковая модель ----
+        let role = document.getElementById('lm_role').value.trim();
+        let task = document.getElementById('lm_task').value.trim();
+        let inputData = document.getElementById('lm_input').value.trim();
+        let format = document.getElementById('lm_format').value.trim();
+        let volume = document.getElementById('lm_volume').value.trim();
+        let style = document.getElementById('lm_style').value.trim();
+        let method = document.getElementById('lm_method').value;
+        let safety = document.getElementById('lm_safety').value.trim();
+        
+        if (role || task || inputData || format || volume || style || method || safety) {
+            prompt += "## ЯЗЫКОВАЯ МОДЕЛЬ\n\n";
+            if (role) prompt += `РОЛЬ И КОНТЕКСТ:\n${role}\n\n`;
+            if (task) prompt += `КОНКРЕТНАЯ ЗАДАЧА:\n${task}\n\n`;
+            if (inputData) prompt += `ВХОДНЫЕ ДАННЫЕ:\n${inputData}\n\n`;
+            let reqs = [];
+            if (format) reqs.push(`Формат: ${format}`);
+            if (volume) reqs.push(`Объём: ${volume}`);
+            if (style) reqs.push(`Стиль: ${style}`);
+            if (reqs.length) prompt += `ТРЕБОВАНИЯ К ОТВЕТУ:\n${reqs.join(" / ")}\n\n`;
+            if (method) prompt += `МЕТОД РАССУЖДЕНИЯ:\n${method}\n\n`;
+            if (safety) prompt += `ЗАЩИТА ОТ ОШИБОК:\n${safety}\n\n`;
+        }
+        
+        // ---- 2. Генерация изображений ----
+        let imgObj = document.getElementById('img_object').value.trim();
+        let imgState = document.getElementById('img_state').value.trim();
+        let imgEnv = document.getElementById('img_env').value.trim();
+        let imgComp = document.getElementById('img_composition').value.trim();
+        let imgLight = document.getElementById('img_light').value.trim();
+        let imgStyle = document.getElementById('img_style').value.trim();
+        let imgParams = document.getElementById('img_params').value.trim();
+        let imgForbid = document.getElementById('img_forbidden').value.trim();
+        
+        if (imgObj || imgState || imgEnv || imgComp || imgLight || imgStyle || imgParams || imgForbid) {
+            prompt += "## ГЕНЕРАЦИЯ ИЗОБРАЖЕНИЙ\n\n";
+            if (imgObj) prompt += `ГЛАВНЫЙ ОБЪЕКТ: ${imgObj}\n`;
+            if (imgState) prompt += `СОСТОЯНИЕ И ДЕТАЛИ: ${imgState}\n`;
+            if (imgEnv) prompt += `ОКРУЖЕНИЕ: ${imgEnv}\n`;
+            if (imgComp) prompt += `КОМПОЗИЦИЯ: ${imgComp}\n`;
+            if (imgLight) prompt += `ОСВЕЩЕНИЕ: ${imgLight}\n`;
+            if (imgStyle) prompt += `СТИЛЬ И МЕДИУМ: ${imgStyle}\n`;
+            if (imgParams) prompt += `ПАРАМЕТРЫ: ${imgParams}\n`;
+            if (imgForbid) prompt += `ЗАПРЕТЫ: ${imgForbid}\n`;
+            prompt += "\n";
+        }
+        
+        // ---- 3. Генерация кода ----
+        let codeTask = document.getElementById('code_task').value.trim();
+        let codeSig = document.getElementById('code_sig').value.trim();
+        let codeInput = document.getElementById('code_input').value.trim();
+        let codeOutput = document.getElementById('code_output').value.trim();
+        let codeLang = document.getElementById('code_lang').value.trim();
+        let codeFrame = document.getElementById('code_framework').value.trim();
+        let codeStyle = document.getElementById('code_style').value.trim();
+        let codeEdges = document.getElementById('code_edges').value.trim();
+        let codeExample = document.getElementById('code_example').value.trim();
+        let typeHints = document.getElementById('code_typehints').checked;
+        let docstrings = document.getElementById('code_docstrings').checked;
+        let errors = document.getElementById('code_errors').checked;
+        let tests = document.getElementById('code_tests').checked;
+        
+        if (codeTask || codeSig || codeInput || codeOutput || codeLang || codeFrame || codeStyle || codeEdges || codeExample || typeHints || docstrings || errors || tests) {
+            prompt += "## ГЕНЕРАЦИЯ КОДА\n\n";
+            if (codeTask) prompt += `ЗАДАЧА: ${codeTask}\n`;
+            if (codeSig) prompt += `СИГНАТУРА: ${codeSig}\n`;
+            if (codeInput) prompt += `ВХОДНЫЕ ДАННЫЕ: ${codeInput}\n`;
+            if (codeOutput) prompt += `ВЫХОДНЫЕ ДАННЫЕ: ${codeOutput}\n`;
+            if (codeLang || codeFrame || codeStyle) {
+                let tech = [];
+                if (codeLang) tech.push(`Язык: ${codeLang}`);
+                if (codeFrame) tech.push(`Фреймворк: ${codeFrame}`);
+                if (codeStyle) tech.push(`Стиль: ${codeStyle}`);
+                prompt += `ТЕХНОЛОГИИ: ${tech.join(", ")}\n`;
+            }
+            if (codeEdges) prompt += `EDGE CASES: ${codeEdges}\n`;
+            let quality = [];
+            if (typeHints) quality.push("type hints");
+            if (docstrings) quality.push("docstrings");
+            if (errors) quality.push("обработка ошибок");
+            if (tests) quality.push("тесты");
+            if (quality.length) prompt += `ТРЕБОВАНИЯ К КАЧЕСТВУ: ${quality.join(", ")}\n`;
+            if (codeExample) prompt += `ПРИМЕР (few-shot):\n${codeExample}\n`;
+            prompt += "\n";
+        }
+        
+        if (prompt === "") return "// Заполните хотя бы одно поле и нажмите «Собрать промпт»";
+        return prompt;
+    }
+    
+    // Кнопка "Собрать промпт" — переносит результат в окно вывода
+    const buildBtn = document.getElementById('buildBtn');
+    const promptOutput = document.getElementById('promptOutput');
+    
+    buildBtn.addEventListener('click', () => {
+        const result = generatePrompt();
+        promptOutput.innerText = result;
+        
+        // Небольшая анимация — подсветка блока
+        promptOutput.classList.add('bg-indigo-50');
+        setTimeout(() => promptOutput.classList.remove('bg-indigo-50'), 300);
+    });
+    
+    // Кнопка копирования
+    document.getElementById('copyBtn').addEventListener('click', async () => {
+        const text = promptOutput.innerText;
+        if (text === "// Заполните хотя бы одно поле и нажмите «Собрать промпт»") {
+            alert("Сначала соберите промпт (нажмите большую синюю кнопку)");
+            return;
+        }
+        try {
+            await navigator.clipboard.writeText(text);
+            const btn = document.getElementById('copyBtn');
+            const originalText = btn.innerText;
+            btn.innerText = '✅ Скопировано!';
+            setTimeout(() => btn.innerText = originalText, 2000);
+        } catch (err) {
+            alert('Не удалось скопировать, но можно выделить текст вручную');
+        }
+    });
+    
+    // Пример для демонстрации (заполним пару полей, чтобы сразу было понятно)
+    document.getElementById('lm_role').value = "Ты — опытный AI-ассистент, специалист по созданию промптов.";
+    document.getElementById('lm_task').value = "Что нужно сделать: объясни, как улучшить промпт для генерации изображений. Что НЕ нужно: давать советы без конкретных примеров.";
+</script>
+
+</body>
+</html>
