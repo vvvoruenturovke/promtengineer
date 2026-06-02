@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>✨ Чат-бот с ИИ-подсказками (простая версия)</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .chat-container {
+            max-width: 900px;
+            width: 100%;
+            height: 85vh;
+            background: white;
+            border-radius: 28px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .chat-header h1 {
+            font-size: 1.5rem;
+            margin-bottom: 4px;
+        }
+
+        .chat-header p {
+            font-size: 0.8rem;
+            opacity: 0.9;
+        }
+
+        .messages-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f7f9fc;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .message {
+            display: flex;
+            flex-direction: column;
+            max-width: 80%;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .user-message { align-self: flex-end; }
+        .bot-message { align-self: flex-start; }
+
+        .message-bubble {
+            padding: 10px 15px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        .user-message .message-bubble {
+            background: #667eea;
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .bot-message .message-bubble {
+            background: white;
+            color: #1e293b;
+            border: 1px solid #e2e8f0;
+            border-bottom-left-radius: 4px;
+        }
+
+        .message-time {
+            font-size: 0.7rem;
+            color: #94a3b8;
+            margin-top: 4px;
+            margin-left: 8px;
+        }
+
+        .suggestions-panel {
+            background: #f8fafc;
+            border-top: 1px solid #e2e8f0;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 12px 20px;
+            min-height: 110px;
+        }
+
+        .suggestions-header {
+            font-size: 0.7rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #475569;
+            margin-bottom: 10px;
+        }
+
+        .suggestions-content {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .suggestion-chip {
+            background: white;
+            padding: 8px 16px;
+            border-radius: 40px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid #cbd5e1;
+            color: #1e293b;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+        }
+
+        .suggestion-chip:hover {
+            background: #eef2ff;
+            border-color: #667eea;
+            transform: translateX(3px);
+        }
+
+        .input-area {
+            padding: 16px 20px;
+            background: white;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .input-area input {
+            flex: 1;
+            padding: 12px 18px;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 40px;
+            font-size: 1rem;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .input-area input:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .input-area button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 28px;
+            border-radius: 40px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: 0.15s;
+        }
+
+        .input-area button:hover {
+            background: #5a67d8;
+            transform: scale(0.97);
+        }
+
+        .status {
+            font-size: 0.7rem;
+            text-align: right;
+            padding: 6px 20px;
+            background: #f1f5f9;
+            color: #475569;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            border: 2px solid #e2e8f0;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            margin-right: 6px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .config-panel {
+            background: #fff9e6;
+            padding: 14px 20px;
+            border-bottom: 1px solid #fde68a;
+            font-size: 0.85rem;
+        }
+
+        .config-panel input, .config-panel textarea {
+            width: 100%;
+            padding: 8px 12px;
+            margin-top: 6px;
+            border-radius: 12px;
+            border: 1px solid #fcd34d;
+            font-family: monospace;
+            background: #fffbeb;
+        }
+
+        .config-panel button {
+            margin-top: 10px;
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 6px 14px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        a {
+            color: #667eea;
+        }
+    </style>
+</head>
+<body>
+
+<div class="chat-container">
+    <div class="chat-header">
+        <h1>🤖 Умный помощник</h1>
+        <p>Анализирую ваш текст → предлагаю уточняющие вопросы</p>
+    </div>
+
+    <!-- Упрощённая панель настроек: только токен -->
+    <div class="config-panel">
+        <strong>🔑 1. Ваш Hugging Face токен (бесплатно):</strong>
+        <input type="password" id="tokenInput" placeholder="hf_..." autocomplete="off">
+        <button id="saveTokenBtn">💾 Сохранить токен</button>
+        <div style="font-size: 0.7rem; margin-top: 6px;">
+            <a href="https://huggingface.co/settings/tokens" target="_blank">👉 Получить токен</a> (аккаунт бесплатный, токен уровня Read)
+        </div>
+        <div style="font-size: 0.7rem; margin-top: 8px; color: #b45309;">
+            ⚡ <strong>Готово:</strong> Используем работающую модель <code>HuggingFaceH4/zephyr-7b-beta</code> (она открыта и быстро отвечает)
+        </div>
+    </div>
+
+    <div class="messages-area" id="messagesArea">
+        <div class="message bot-message">
+            <div class="message-bubble">
+                Привет! 👋<br>
+                Начни печатать — я буду в реальном времени предлагать уточняющие вопросы, чтобы твой запрос стал точнее.
+            </div>
+            <div class="message-time">сейчас</div>
+        </div>
+    </div>
+
+    <div class="suggestions-panel">
+        <div class="suggestions-header">✨ УТОЧНЯЮЩИЕ ВОПРОСЫ (появятся после начала ввода)</div>
+        <div class="suggestions-content" id="suggestionsContent">
+            <div style="color: #94a3b8;">✏️ Начните писать в поле ниже...</div>
+        </div>
+    </div>
+
+    <div class="input-area">
+        <input type="text" id="userInput" placeholder="Например: как испечь хлеб?" autocomplete="off">
+        <button id="sendBtn">Отправить</button>
+    </div>
+    <div class="status" id="status">⚡ Ожидание ввода</div>
+</div>
+
+<script>
+    // --- НАСТРОЙКИ ---
+    let HF_TOKEN = localStorage.getItem('hf_token') || '';
+    const MODEL = "HuggingFaceH4/zephyr-7b-beta";   // ✅ Рабочая, открытая модель, быстрая и без требований доступа
+
+    // DOM-элементы
+    const messagesArea = document.getElementById('messagesArea');
+    const userInput = document.getElementById('userInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const suggestionsDiv = document.getElementById('suggestionsContent');
+    const statusDiv = document.getElementById('status');
+    const tokenInput = document.getElementById('tokenInput');
+    const saveTokenBtn = document.getElementById('saveTokenBtn');
+
+    let debounceTimer = null;
+
+    // --- Сообщения в чат ---
+    function addMessage(text, isUser) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${isUser ? 'user-message' : 'bot-message'}`;
+        const bubble = document.createElement('div');
+        bubble.className = 'message-bubble';
+        bubble.innerText = text;
+        const timeSpan = document.createElement('div');
+        timeSpan.className = 'message-time';
+        timeSpan.innerText = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        messageDiv.appendChild(bubble);
+        messageDiv.appendChild(timeSpan);
+        messagesArea.appendChild(messageDiv);
+        messagesArea.scrollTop = messagesArea.scrollHeight;
+    }
+
+    // --- Функция вызова Hugging Face Inference API (без CORS-прокси, через правильный эндпоинт) ---
+    async function getClarifyingQuestions(userText) {
+        if (!userText || userText.trim().length < 3) return [];
+        if (!HF_TOKEN || !HF_TOKEN.startsWith('hf_')) {
+            statusDiv.innerHTML = "⚠️ Введите и сохраните токен Hugging Face";
+            return ["🔑 Сохраните токен в панели выше"];
+        }
+
+        // Промпт — понятный для модели
+        const prompt = `Ты — помощник. Пользователь пишет: "${userText}". Предложи 2–3 коротких уточняющих вопроса на русском языке, которые помогут сделать запрос более конкретным. Каждый вопрос с новой строки. Без нумерации, без лишнего текста.`;
+
+        try {
+            statusDiv.innerHTML = "🧠 Анализирую текст через AI...";
+            
+            const response = await fetch(`https://api-inference.huggingface.co/models/${MODEL}`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${HF_TOKEN}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    inputs: prompt,
+                    parameters: {
+                        temperature: 0.6,
+                        max_new_tokens: 180,
+                        top_p: 0.95,
+                        do_sample: true,
+                        return_full_text: false,
+                        wait_for_model: true      // ← дожидаемся загрузки, если модель "холодная"
+                    }
+                })
+            });
+
+            if (response.status === 401 || response.status === 403) {
+                throw new Error('Неверный токен (401/403). Проверьте или создайте новый токен.');
+            }
+            if (response.status === 503) {
+                return ["⏳ Модель загружается, подождите 20 секунд и повторите ввод"];
+            }
+            if (!response.ok) {
+                throw new Error(`Ошибка API: ${response.status} ${response.statusText}`);
+            }
+
+            const result = await response.json();
+            let generated = result.generated_text || (Array.isArray(result) && result[0]?.generated_text) || '';
+            
+            // Разбираем вопросы
+            let questions = generated
+                .split(/\n+/)
+                .filter(line => line.trim().length > 5 && line.length < 180)
+                .map(line => line.replace(/^\d+[\.\)\-]\s*/, '').trim())
+                .slice(0, 3);
+
+            if (questions.length === 0) {
+                questions = [
+                    "❓ Уточните, пожалуйста, что именно вас интересует?",
+                    "📎 Добавьте больше деталей (место, время, цель)?",
+                    "🎯 Какой результат вы хотите получить?"
+                ];
+            }
+
+            statusDiv.innerHTML = "✅ Вопросы готовы (кликабельны)";
+            return questions;
+        } catch (err) {
+            console.error("API error:", err);
+            statusDiv.innerHTML = `❌ Ошибка: ${err.message}`;
+            return [`⚠️ Не удалось получить вопросы: ${err.message}. Проверьте токен или повторите позже.`];
+        }
+    }
+
+    // --- Обновить подсказки на панели ---
+    async function updateSuggestions(inputText) {
+        if (!inputText || inputText.trim().length < 3) {
+            suggestionsDiv.innerHTML = '<div style="color:#94a3b8;">👈 Введите минимум 3 символа...</div>';
+            return;
+        }
+
+        suggestionsDiv.innerHTML = '<div><span class="loading"></span> Генерирую уточняющие вопросы...</div>';
+        const questions = await getClarifyingQuestions(inputText);
+        
+        suggestionsDiv.innerHTML = '';
+        questions.forEach(q => {
+            const chip = document.createElement('div');
+            chip.className = 'suggestion-chip';
+            chip.innerText = q;
+            chip.onclick = () => {
+                userInput.value = q;
+                userInput.focus();
+                updateSuggestions(q);
+            };
+            suggestionsDiv.appendChild(chip);
+        });
+    }
+
+    // --- Debounce ввода ---
+    function onUserTyping(event) {
+        const text = event.target.value;
+        if (debounceTimer) clearTimeout(debounceTimer);
+        if (!text.trim()) {
+            suggestionsDiv.innerHTML = '<div style="color:#94a3b8;">✏️ Начните вводить запрос...</div>';
+            statusDiv.innerHTML = "⚡ Ожидание ввода";
+            return;
+        }
+        debounceTimer = setTimeout(() => {
+            updateSuggestions(text);
+        }, 700);
+    }
+
+    // --- Отправка сообщения пользователя ---
+    async function sendUserMessage() {
+        const msg = userInput.value.trim();
+        if (!msg) return;
+        addMessage(msg, true);
+        userInput.value = '';
+        suggestionsDiv.innerHTML = '<div style="color:#94a3b8;">💬 Сообщение отправлено. Пишите новое — появятся подсказки.</div>';
+        setTimeout(() => {
+            addMessage("Спасибо за сообщение! Продолжайте диалог или используйте подсказки для уточнения.", false);
+        }, 300);
+        statusDiv.innerHTML = "✅ Отправлено";
+        setTimeout(() => {
+            if (!userInput.value.trim()) statusDiv.innerHTML = "⚡ Готов к работе";
+        }, 2000);
+    }
+
+    // --- Сохранить токен ---
+    function saveToken() {
+        const newToken = tokenInput.value.trim();
+        if (newToken && newToken.startsWith('hf_')) {
+            HF_TOKEN = newToken;
+            localStorage.setItem('hf_token', newToken);
+            statusDiv.innerHTML = "✅ Токен сохранён! Теперь можно печатать.";
+            statusDiv.style.color = "#10b981";
+            setTimeout(() => {
+                statusDiv.innerHTML = "⚡ Готов к работе";
+                statusDiv.style.color = "#475569";
+            }, 2000);
+        } else {
+            alert('❌ Токен должен начинаться с "hf_" (пример: hf_ABc123...). Получите его на huggingface.co/settings/tokens');
+        }
+    }
+
+    // --- Инициализация ---
+    if (HF_TOKEN) {
+        tokenInput.value = HF_TOKEN;
+        statusDiv.innerHTML = "⚡ Токен загружен. Начинайте печатать!";
+    } else {
+        statusDiv.innerHTML = "🔑 Введите токен Hugging Face и нажмите «Сохранить»";
+    }
+
+    userInput.addEventListener('input', onUserTyping);
+    sendBtn.addEventListener('click', sendUserMessage);
+    userInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') sendUserMessage();
+    });
+    saveTokenBtn.addEventListener('click', saveToken);
+</script>
+</body>
+</html>
