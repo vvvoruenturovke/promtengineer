@@ -3,245 +3,549 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Конструктор промптов — собери и скопируй</title>
+    <title>Конструктор промптов — с историей и своими шаблонами</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <style>
         body { background: #f3f4f6; }
-        .card { transition: all 0.2s; }
-        .card:focus-within { box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .tooltip { position: relative; display: inline-block; }
+        .tooltip .tooltip-text {
+            visibility: hidden;
+            background-color: #1f2937;
+            color: #fff;
+            text-align: left;
+            border-radius: 8px;
+            padding: 8px 12px;
+            position: absolute;
+            z-index: 10;
+            bottom: 125%;
+            left: 0;
+            width: 260px;
+            font-size: 12px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .tooltip:hover .tooltip-text { visibility: visible; opacity: 1; }
+        .hint-label { border-bottom: 1px dashed #9ca3af; cursor: help; }
+        .preset-btn, .custom-preset-btn, .history-item { transition: all 0.2s; }
+        .preset-btn:hover, .custom-preset-btn:hover, .history-item:hover { transform: translateY(-1px); background-color: #e5e7eb; }
+        .toast { animation: slideIn 0.3s ease-out; }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
+        .modal-overlay { background-color: rgba(0,0,0,0.5); backdrop-filter: blur(4px); }
     </style>
 </head>
 <body class="font-sans antialiased">
 
-<div class="max-w-6xl mx-auto p-6">
-    <!-- Шапка -->
-    <div class="text-center mb-8">
+<div class="max-w-7xl mx-auto p-6">
+    <div class="text-center mb-6">
         <h1 class="text-4xl font-extrabold text-gray-900">🧠 Конструктор промптов</h1>
-        <p class="text-gray-600 mt-2">Заполни нужные поля → нажми «Собрать промпт» → скопируй готовый запрос</p>
+        <p class="text-gray-600 mt-2">Подсказки • Шаблоны • История • Сохранение</p>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <!-- ЛЕВАЯ КОЛОНКА: ФОРМЫ -->
-        <div class="space-y-6">
-            <!-- ================= СЕКЦИЯ: Языковая модель ================= -->
-            <div class="bg-white rounded-xl shadow-md p-5 card">
-                <h2 class="text-xl font-bold text-indigo-700 mb-3 flex items-center gap-2">💬 Языковая модель</h2>
-                
-                <label class="block mt-3 font-semibold">Роль и контекст</label>
-                <textarea id="lm_role" rows="2" class="w-full border rounded-lg p-2 text-sm" placeholder="Ты — эксперт по маркетингу с 10-летним опытом в e-commerce. Контекст: пользователь — владелец небольшого магазина."></textarea>
-                
-                <label class="block mt-3 font-semibold">Конкретная задача</label>
-                <textarea id="lm_task" rows="2" class="w-full border rounded-lg p-2 text-sm" placeholder="Что нужно сделать: напиши пост для Instagram. Что НЕ нужно делать: не используй эмодзи, не обещай быстрых результатов."></textarea>
-                
-                <label class="block mt-3 font-semibold">Входные данные (если есть)</label>
-                <textarea id="lm_input" rows="2" class="w-full border rounded-lg p-2 text-sm" placeholder="Вставь текст, ссылку, таблицу..."></textarea>
-                
-                <div class="grid grid-cols-2 gap-3 mt-2">
-                    <div><label class="block font-semibold">Формат вывода</label><input id="lm_format" class="w-full border rounded p-2 text-sm" placeholder="маркированный список / JSON"></div>
-                    <div><label class="block font-semibold">Объём</label><input id="lm_volume" class="w-full border rounded p-2 text-sm" placeholder="max 10 предложений"></div>
-                </div>
-                <div><label class="block font-semibold mt-2">Стиль</label><input id="lm_style" class="w-full border rounded p-2 text-sm" placeholder="академический / разговорный"></div>
-                
-                <label class="block mt-3 font-semibold">Метод рассуждения</label>
-                <select id="lm_method" class="w-full border rounded p-2 text-sm">
-                    <option value="">Не требуется</option>
-                    <option>Шаг за шагом (chain-of-thought)</option>
-                    <option>Самокритика — после ответа оцени по шкале 1-5</option>
-                    <option>Декомпозиция — разбей на подзадачи</option>
-                </select>
-                
-                <label class="block mt-3 font-semibold">Защита от ошибок</label>
-                <input id="lm_safety" class="w-full border rounded p-2 text-sm" placeholder="Если не уверен — скажи 'не знаю'. Не выдумывай факты.">
+        <!-- ЛЕВАЯ КОЛОНКА -->
+        <div>
+            <!-- Вкладки -->
+            <div class="flex border-b border-gray-200 mb-4">
+                <button class="tab-btn px-6 py-3 text-sm font-medium rounded-t-lg transition-all" data-tab="tab-lm" data-type="lm">💬 Языковая модель</button>
+                <button class="tab-btn px-6 py-3 text-sm font-medium rounded-t-lg transition-all" data-tab="tab-img" data-type="img">🎨 Генерация изображений</button>
+                <button class="tab-btn px-6 py-3 text-sm font-medium rounded-t-lg transition-all" data-tab="tab-code" data-type="code">💻 Генерация кода</button>
             </div>
-            
-            <!-- ================= СЕКЦИЯ: Генерация изображений ================= -->
-            <div class="bg-white rounded-xl shadow-md p-5 card">
-                <h2 class="text-xl font-bold text-pink-600 mb-3 flex items-center gap-2">🎨 Генерация изображений</h2>
-                <div class="space-y-2">
-                    <div><label class="font-semibold">Главный объект</label><input id="img_object" class="w-full border rounded p-2 text-sm" placeholder="киберпанк-кот, две фигуры"></div>
-                    <div><label class="font-semibold">Состояние и детали</label><input id="img_state" class="w-full border rounded p-2 text-sm" placeholder="молодой, радостный, в очках"></div>
-                    <div><label class="font-semibold">Окружение</label><input id="img_env" class="w-full border rounded p-2 text-sm" placeholder="неоновая улица, ночь, дождь"></div>
-                    <div><label class="font-semibold">Композиция / ракурс</label><input id="img_composition" class="w-full border rounded p-2 text-sm" placeholder="крупный план, вид снизу"></div>
-                    <div><label class="font-semibold">Освещение</label><input id="img_light" class="w-full border rounded p-2 text-sm" placeholder="неоновый свет, контражур"></div>
-                    <div><label class="font-semibold">Стиль и медиум</label><input id="img_style" class="w-full border rounded p-2 text-sm" placeholder="фотореализм, киберпанк, как у Блохэма"></div>
-                    <div><label class="font-semibold">Параметры</label><input id="img_params" class="w-full border rounded p-2 text-sm" placeholder="16:9, строгое соблюдение"></div>
-                    <div><label class="font-semibold">Запреты</label><input id="img_forbidden" class="w-full border rounded p-2 text-sm" placeholder="без текста, без воды"></div>
+
+            <!-- Панель пресетов (встроенные + свои) -->
+            <div class="mb-4 p-3 bg-gray-100 rounded-lg">
+                <div class="flex items-center justify-between flex-wrap gap-2 mb-2">
+                    <span class="text-sm font-semibold text-gray-700">📦 Шаблоны:</span>
+                    <button id="saveAsPresetBtn" class="text-xs bg-green-100 hover:bg-green-200 text-green-700 px-2 py-1 rounded">➕ Сохранить текущие как шаблон</button>
+                </div>
+                <div id="presetContainer" class="flex flex-wrap gap-2 mb-2"></div>
+                <div id="customPresetContainer" class="flex flex-wrap gap-2"></div>
+            </div>
+
+            <!-- Активная вкладка -->
+            <div id="activeHint" class="mb-4 p-3 bg-blue-50 rounded-lg text-sm text-blue-800 flex items-center justify-between">
+                <div class="flex items-center gap-2">🔵 Активно: <strong id="activeTabName">Языковая модель</strong></div>
+                <div class="flex gap-2">
+                    <button id="clearCurrentBtn" class="text-xs bg-red-100 hover:bg-red-200 text-red-700 px-2 py-1 rounded">🗑️ Очистить текущую</button>
+                    <button id="clearAllBtn" class="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded">⚠️ Очистить всё</button>
                 </div>
             </div>
-            
-            <!-- ================= СЕКЦИЯ: Генерация кода ================= -->
-            <div class="bg-white rounded-xl shadow-md p-5 card">
-                <h2 class="text-xl font-bold text-green-700 mb-3 flex items-center gap-2">💻 Генерация кода</h2>
-                <div><label class="font-semibold">Задача</label><input id="code_task" class="w-full border rounded p-2 text-sm" placeholder="создать функцию сортировки"></div>
-                <div><label class="font-semibold mt-2">Сигнатура</label><input id="code_sig" class="w-full border rounded p-2 text-sm" placeholder="def sort(arr: list) -> list"></div>
-                <div><label class="font-semibold mt-2">Входные данные</label><input id="code_input" class="w-full border rounded p-2 text-sm" placeholder="list[int], может быть пустой"></div>
-                <div><label class="font-semibold mt-2">Выходные данные</label><input id="code_output" class="w-full border rounded p-2 text-sm" placeholder="отсортированный list[int]"></div>
-                <div class="grid grid-cols-2 gap-2 mt-2">
-                    <div><label class="font-semibold">Язык</label><input id="code_lang" class="w-full border rounded p-2 text-sm" placeholder="Python 3.12"></div>
-                    <div><label class="font-semibold">Фреймворк</label><input id="code_framework" class="w-full border rounded p-2 text-sm" placeholder="FastAPI / none"></div>
-                </div>
-                <div><label class="font-semibold mt-2">Стиль кода</label><input id="code_style" class="w-full border rounded p-2 text-sm" placeholder="PEP 8 / Airbnb"></div>
-                <div><label class="font-semibold mt-2">Edge cases (через запятую)</label><input id="code_edges" class="w-full border rounded p-2 text-sm" placeholder="None, пустой список, дубликаты"></div>
-                <div class="flex gap-4 mt-2 text-sm flex-wrap">
-                    <label><input type="checkbox" id="code_typehints"> type hints</label>
-                    <label><input type="checkbox" id="code_docstrings"> docstrings</label>
-                    <label><input type="checkbox" id="code_errors"> обработка ошибок</label>
-                    <label><input type="checkbox" id="code_tests"> тесты</label>
-                </div>
-                <div class="mt-2"><label class="font-semibold">Пример (few-shot)</label><textarea id="code_example" rows="2" class="w-full border rounded p-2 text-sm" placeholder="Вход: [1,2,3] -> Выход: [1,2,3] (уже отсортирован)"></textarea></div>
+
+            <!-- Содержимое вкладок (как было, сокращённо для компактности) -->
+            <div id="tab-lm" class="tab-content bg-white rounded-xl shadow-md p-5" data-type="lm">
+                <h2 class="text-xl font-bold text-indigo-700 mb-3">📝 Детали запроса</h2>
+                <div class="tooltip mt-3"><label class="font-semibold hint-label">Роль и контекст</label><div class="tooltip-text">💡 Пример: «Ты — эксперт по маркетингу...»</div><textarea id="lm_role" rows="2" class="w-full border rounded-lg p-2 text-sm" placeholder="Ты — эксперт..."></textarea></div>
+                <div class="tooltip mt-3"><label class="font-semibold hint-label">Конкретная задача</label><div class="tooltip-text">💡 Что нужно и что нельзя</div><textarea id="lm_task" rows="2" class="w-full border rounded-lg p-2 text-sm" placeholder="Что нужно сделать: ... Что НЕ нужно: ..."></textarea></div>
+                <div class="tooltip mt-3"><label class="font-semibold hint-label">Входные данные</label><div class="tooltip-text">💡 Текст, код, ссылка</div><textarea id="lm_input" rows="2" class="w-full border rounded-lg p-2 text-sm" placeholder="Вставьте текст..."></textarea></div>
+                <div class="grid grid-cols-2 gap-3 mt-2"><div class="tooltip"><label class="font-semibold hint-label">Формат вывода</label><div class="tooltip-text">💡 JSON, таблица, список</div><input id="lm_format" class="w-full border rounded p-2 text-sm" placeholder="Формат"></div><div class="tooltip"><label class="font-semibold hint-label">Объём</label><div class="tooltip-text">💡 max 10 предложений</div><input id="lm_volume" class="w-full border rounded p-2 text-sm" placeholder="Объём"></div></div>
+                <div class="tooltip mt-2"><label class="font-semibold hint-label">Стиль</label><div class="tooltip-text">💡 академический, разговорный</div><input id="lm_style" class="w-full border rounded p-2 text-sm" placeholder="Стиль"></div>
+                <div class="tooltip mt-3"><label class="font-semibold hint-label">Метод рассуждения</label><div class="tooltip-text">💡 chain-of-thought, самокритика</div><select id="lm_method" class="w-full border rounded p-2 text-sm"><option value="">Не требуется</option><option>Шаг за шагом</option><option>Самокритика</option><option>Декомпозиция</option></select></div>
+                <div class="tooltip mt-3"><label class="font-semibold hint-label">Защита от ошибок</label><div class="tooltip-text">💡 Если не уверен — скажи «не знаю»</div><input id="lm_safety" class="w-full border rounded p-2 text-sm" placeholder="Защита от ошибок"></div>
             </div>
-            
-            <!-- КНОПКА СБОРА ПРОМПТА -->
-            <div class="flex justify-center">
-                <button id="buildBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-xl shadow-lg transition transform hover:scale-105 text-lg">
-                    ✨ Собрать промпт
-                </button>
+            <div id="tab-img" class="tab-content bg-white rounded-xl shadow-md p-5 hidden" data-type="img">
+                <h2 class="text-xl font-bold text-pink-600 mb-3">🎨 Параметры изображения</h2>
+                <div class="space-y-2"><div class="tooltip"><label class="font-semibold hint-label">Главный объект</label><div class="tooltip-text">💡 Что в центре?</div><input id="img_object" class="w-full border rounded p-2 text-sm"></div>
+                <div class="tooltip"><label class="font-semibold hint-label">Детали</label><div class="tooltip-text">💡 Эмоция, поза, одежда</div><input id="img_state" class="w-full border rounded p-2 text-sm"></div>
+                <div class="tooltip"><label class="font-semibold hint-label">Окружение</label><div class="tooltip-text">💡 Место, время суток</div><input id="img_env" class="w-full border rounded p-2 text-sm"></div>
+                <div class="tooltip"><label class="font-semibold hint-label">Композиция</label><div class="tooltip-text">💡 Ракурс, план</div><input id="img_composition" class="w-full border rounded p-2 text-sm"></div>
+                <div class="tooltip"><label class="font-semibold hint-label">Освещение</label><div class="tooltip-text">💡 Тип света</div><input id="img_light" class="w-full border rounded p-2 text-sm"></div>
+                <div class="tooltip"><label class="font-semibold hint-label">Стиль</label><div class="tooltip-text">💡 Художник, направление</div><input id="img_style" class="w-full border rounded p-2 text-sm"></div>
+                <div class="tooltip"><label class="font-semibold hint-label">Параметры</label><div class="tooltip-text">💡 Пропорции</div><input id="img_params" class="w-full border rounded p-2 text-sm"></div>
+                <div class="tooltip"><label class="font-semibold hint-label">Запреты</label><div class="tooltip-text">💡 Чего избегать</div><input id="img_forbidden" class="w-full border rounded p-2 text-sm"></div></div>
+            </div>
+            <div id="tab-code" class="tab-content bg-white rounded-xl shadow-md p-5 hidden" data-type="code">
+                <h2 class="text-xl font-bold text-green-700 mb-3">💻 Параметры кода</h2>
+                <div class="tooltip"><label class="font-semibold hint-label">Задача</label><div class="tooltip-text">💡 Что должен делать код</div><input id="code_task" class="w-full border rounded p-2 text-sm"></div>
+                <div class="tooltip mt-2"><label class="font-semibold hint-label">Сигнатура</label><div class="tooltip-text">💡 def name(params) -> return</div><input id="code_sig" class="w-full border rounded p-2 text-sm"></div>
+                <div class="grid grid-cols-2 gap-2 mt-2"><div class="tooltip"><label class="font-semibold hint-label">Вход</label><div class="tooltip-text">💡 Тип, пример</div><input id="code_input" class="w-full border rounded p-2 text-sm"></div><div class="tooltip"><label class="font-semibold hint-label">Выход</label><div class="tooltip-text">💡 Тип, пример</div><input id="code_output" class="w-full border rounded p-2 text-sm"></div></div>
+                <div class="grid grid-cols-2 gap-2 mt-2"><div class="tooltip"><label class="font-semibold hint-label">Язык</label><div class="tooltip-text">💡 Python, TS, Go</div><input id="code_lang" class="w-full border rounded p-2 text-sm"></div><div class="tooltip"><label class="font-semibold hint-label">Фреймворк</label><div class="tooltip-text">💡 FastAPI, React</div><input id="code_framework" class="w-full border rounded p-2 text-sm"></div></div>
+                <div class="tooltip mt-2"><label class="font-semibold hint-label">Стиль</label><div class="tooltip-text">💡 PEP8, Airbnb</div><input id="code_style" class="w-full border rounded p-2 text-sm"></div>
+                <div class="tooltip mt-2"><label class="font-semibold hint-label">Edge cases</label><div class="tooltip-text">💡 null, пустые значения</div><input id="code_edges" class="w-full border rounded p-2 text-sm"></div>
+                <div class="flex gap-3 mt-2 text-sm flex-wrap"><label><input type="checkbox" id="code_typehints"> type hints</label><label><input type="checkbox" id="code_docstrings"> docstrings</label><label><input type="checkbox" id="code_errors"> обработка ошибок</label><label><input type="checkbox" id="code_tests"> тесты</label></div>
+                <div class="tooltip mt-2"><label class="font-semibold hint-label">Пример</label><div class="tooltip-text">💡 few-shot пример</div><textarea id="code_example" rows="2" class="w-full border rounded p-2 text-sm"></textarea></div>
+            </div>
+
+            <!-- Кнопка сборки -->
+            <div class="flex justify-center mt-6">
+                <button id="buildBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-xl shadow-lg transition transform hover:scale-105 text-lg">✨ Собрать промпт</button>
             </div>
         </div>
-        
-        <!-- ПРАВАЯ КОЛОНКА: ВЫВОД ПРОМПТА -->
-        <div class="bg-white rounded-xl shadow-md p-5 sticky top-6 h-fit card">
+
+        <!-- ПРАВАЯ КОЛОНКА -->
+        <div class="bg-white rounded-xl shadow-md p-5 sticky top-6 h-fit">
             <h2 class="text-xl font-bold text-gray-800 mb-3 flex justify-between items-center">
-                📋 Готовый промпт
-                <button id="copyBtn" class="bg-gray-200 hover:bg-gray-300 text-sm px-3 py-1 rounded-full transition">Копировать</button>
+                <div>📋 Готовый промпт <span id="charCount" class="text-xs text-gray-400">(0 символов)</span></div>
+                <div class="flex gap-2">
+                    <button id="copyBtn" class="bg-gray-200 hover:bg-gray-300 text-sm px-3 py-1 rounded-full">Копировать</button>
+                    <button id="downloadBtn" class="bg-gray-200 hover:bg-gray-300 text-sm px-3 py-1 rounded-full">💾 Скачать</button>
+                </div>
             </h2>
-            <div class="bg-gray-50 border rounded-lg p-4 font-mono text-sm whitespace-pre-wrap min-h-[400px] max-h-[600px] overflow-auto" id="promptOutput">
-                // Нажмите «Собрать промпт» — здесь появится результат
+            <div class="bg-gray-900 rounded-lg p-4 overflow-auto min-h-[300px] max-h-[400px]">
+                <pre><code id="promptOutput" class="language-markdown text-sm text-gray-100 whitespace-pre-wrap">// Заполните поля и нажмите «Собрать промпт»</code></pre>
+            </div>
+
+            <!-- ИСТОРИЯ ПРОМПТОВ -->
+            <div class="mt-5 pt-4 border-t border-gray-200">
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="font-semibold text-gray-700">📜 История промптов</h3>
+                    <button id="clearHistoryBtn" class="text-xs text-red-500 hover:text-red-700">Очистить историю</button>
+                </div>
+                <div id="historyContainer" class="max-h-48 overflow-y-auto space-y-2">
+                    <div class="text-gray-400 text-sm text-center py-2">Пока ничего нет. Соберите промпт, и он появится здесь.</div>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
+<div id="toastContainer" class="fixed bottom-4 right-4 z-50 space-y-2"></div>
+
+<!-- Модальное окно для сохранения шаблона -->
+<div id="presetModal" class="hidden fixed inset-0 flex items-center justify-center z-50">
+    <div class="modal-overlay absolute inset-0" id="modalOverlay"></div>
+    <div class="bg-white rounded-xl shadow-2xl p-6 w-96 relative z-10">
+        <h3 class="text-lg font-bold mb-4">💾 Сохранить шаблон</h3>
+        <input type="text" id="presetNameInput" class="w-full border rounded-lg p-2 mb-4" placeholder="Название шаблона (например: Мой пост)">
+        <div class="flex justify-end gap-2">
+            <button id="cancelPresetBtn" class="px-4 py-2 bg-gray-200 rounded-lg">Отмена</button>
+            <button id="confirmPresetBtn" class="px-4 py-2 bg-green-600 text-white rounded-lg">Сохранить</button>
+        </div>
+    </div>
+</div>
+
 <script>
-    // Функция генерации итогового промпта из текущих полей
-    function generatePrompt() {
-        let prompt = "";
-        
-        // ---- 1. Языковая модель ----
-        let role = document.getElementById('lm_role').value.trim();
-        let task = document.getElementById('lm_task').value.trim();
-        let inputData = document.getElementById('lm_input').value.trim();
-        let format = document.getElementById('lm_format').value.trim();
-        let volume = document.getElementById('lm_volume').value.trim();
-        let style = document.getElementById('lm_style').value.trim();
-        let method = document.getElementById('lm_method').value;
-        let safety = document.getElementById('lm_safety').value.trim();
-        
-        if (role || task || inputData || format || volume || style || method || safety) {
-            prompt += "## ЯЗЫКОВАЯ МОДЕЛЬ\n\n";
-            if (role) prompt += `РОЛЬ И КОНТЕКСТ:\n${role}\n\n`;
-            if (task) prompt += `КОНКРЕТНАЯ ЗАДАЧА:\n${task}\n\n`;
-            if (inputData) prompt += `ВХОДНЫЕ ДАННЫЕ:\n${inputData}\n\n`;
-            let reqs = [];
-            if (format) reqs.push(`Формат: ${format}`);
-            if (volume) reqs.push(`Объём: ${volume}`);
-            if (style) reqs.push(`Стиль: ${style}`);
-            if (reqs.length) prompt += `ТРЕБОВАНИЯ К ОТВЕТУ:\n${reqs.join(" / ")}\n\n`;
-            if (method) prompt += `МЕТОД РАССУЖДЕНИЯ:\n${method}\n\n`;
-            if (safety) prompt += `ЗАЩИТА ОТ ОШИБОК:\n${safety}\n\n`;
+    // ========== КЛЮЧИ ДЛЯ LOCALSTORAGE ==========
+    const STORAGE_KEYS = {
+        FORM_DATA: 'prompt_builder_form_data',
+        CUSTOM_PRESETS: 'prompt_builder_custom_presets',
+        HISTORY: 'prompt_builder_history'
+    };
+
+    // ========== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ==========
+    let currentActiveTab = 'tab-lm';
+    let currentActiveType = 'lm';
+    
+    // Встроенные пресеты
+    const builtInPresets = {
+        lm: [
+            { name: "📝 Маркетинг", fields: { lm_role: "Ты — CMO в финтех-компании", lm_task: "Напиши пост для LinkedIn о новом продукте. Не используй кликбейт", lm_style: "профессиональный", lm_format: "маркированный список" } },
+            { name: "🐛 Отладка кода", fields: { lm_role: "Ты — senior разработчик", lm_task: "Найди ошибки в коде ниже. Объясни каждую", lm_format: "список с объяснениями" } },
+            { name: "📚 Обучение", fields: { lm_role: "Ты — терпеливый преподаватель", lm_task: "Объясни концепцию простыми словами. Используй аналогии", lm_style: "для новичков", lm_method: "Шаг за шагом" } }
+        ],
+        img: [
+            { name: "🎬 Киберпанк", fields: { img_object: "киборг-ниндзя", img_env: "неоновый Токио, ночь", img_light: "неоновый свет", img_style: "киберпанк" } },
+            { name: "🖌️ Акварель", fields: { img_style: "акварель", img_object: "кот на подоконнике", img_light: "мягкий свет" } },
+            { name: "🏔️ Фотореализм", fields: { img_style: "фотореализм, 8K", img_object: "горное озеро", img_light: "золотой час" } }
+        ],
+        code: [
+            { name: "🐍 Python функция", fields: { code_lang: "Python 3.12", code_task: "функция для проверки палиндрома", code_style: "PEP 8", code_typehints: true, code_docstrings: true } },
+            { name: "⚛️ React компонент", fields: { code_lang: "TypeScript 5+", code_framework: "React 18", code_task: "кнопка с счётчиком", code_style: "Airbnb" } },
+            { name: "🚀 FastAPI endpoint", fields: { code_lang: "Python 3.12", code_framework: "FastAPI", code_task: "GET /users с пагинацией", code_errors: true } }
+        ]
+    };
+    
+    // Пользовательские пресеты (загружаем из localStorage)
+    let customPresets = { lm: [], img: [], code: [] };
+    
+    // История промптов
+    let history = [];
+    
+    // ========== ФУНКЦИИ LOCALSTORAGE ==========
+    function loadFromStorage() {
+        // Загрузка полей формы
+        const savedForm = localStorage.getItem(STORAGE_KEYS.FORM_DATA);
+        if (savedForm) {
+            try {
+                const data = JSON.parse(savedForm);
+                for (const [id, value] of Object.entries(data)) {
+                    const el = document.getElementById(id);
+                    if (el) {
+                        if (el.type === 'checkbox') el.checked = value === true;
+                        else el.value = value;
+                    }
+                }
+                showToast('Данные восстановлены', 'info');
+            } catch(e) {}
         }
         
-        // ---- 2. Генерация изображений ----
-        let imgObj = document.getElementById('img_object').value.trim();
-        let imgState = document.getElementById('img_state').value.trim();
-        let imgEnv = document.getElementById('img_env').value.trim();
-        let imgComp = document.getElementById('img_composition').value.trim();
-        let imgLight = document.getElementById('img_light').value.trim();
-        let imgStyle = document.getElementById('img_style').value.trim();
-        let imgParams = document.getElementById('img_params').value.trim();
-        let imgForbid = document.getElementById('img_forbidden').value.trim();
-        
-        if (imgObj || imgState || imgEnv || imgComp || imgLight || imgStyle || imgParams || imgForbid) {
-            prompt += "## ГЕНЕРАЦИЯ ИЗОБРАЖЕНИЙ\n\n";
-            if (imgObj) prompt += `ГЛАВНЫЙ ОБЪЕКТ: ${imgObj}\n`;
-            if (imgState) prompt += `СОСТОЯНИЕ И ДЕТАЛИ: ${imgState}\n`;
-            if (imgEnv) prompt += `ОКРУЖЕНИЕ: ${imgEnv}\n`;
-            if (imgComp) prompt += `КОМПОЗИЦИЯ: ${imgComp}\n`;
-            if (imgLight) prompt += `ОСВЕЩЕНИЕ: ${imgLight}\n`;
-            if (imgStyle) prompt += `СТИЛЬ И МЕДИУМ: ${imgStyle}\n`;
-            if (imgParams) prompt += `ПАРАМЕТРЫ: ${imgParams}\n`;
-            if (imgForbid) prompt += `ЗАПРЕТЫ: ${imgForbid}\n`;
-            prompt += "\n";
+        // Загрузка пользовательских пресетов
+        const savedPresets = localStorage.getItem(STORAGE_KEYS.CUSTOM_PRESETS);
+        if (savedPresets) {
+            try {
+                customPresets = JSON.parse(savedPresets);
+            } catch(e) {}
         }
         
-        // ---- 3. Генерация кода ----
-        let codeTask = document.getElementById('code_task').value.trim();
-        let codeSig = document.getElementById('code_sig').value.trim();
-        let codeInput = document.getElementById('code_input').value.trim();
-        let codeOutput = document.getElementById('code_output').value.trim();
-        let codeLang = document.getElementById('code_lang').value.trim();
-        let codeFrame = document.getElementById('code_framework').value.trim();
-        let codeStyle = document.getElementById('code_style').value.trim();
-        let codeEdges = document.getElementById('code_edges').value.trim();
-        let codeExample = document.getElementById('code_example').value.trim();
-        let typeHints = document.getElementById('code_typehints').checked;
-        let docstrings = document.getElementById('code_docstrings').checked;
-        let errors = document.getElementById('code_errors').checked;
-        let tests = document.getElementById('code_tests').checked;
-        
-        if (codeTask || codeSig || codeInput || codeOutput || codeLang || codeFrame || codeStyle || codeEdges || codeExample || typeHints || docstrings || errors || tests) {
-            prompt += "## ГЕНЕРАЦИЯ КОДА\n\n";
-            if (codeTask) prompt += `ЗАДАЧА: ${codeTask}\n`;
-            if (codeSig) prompt += `СИГНАТУРА: ${codeSig}\n`;
-            if (codeInput) prompt += `ВХОДНЫЕ ДАННЫЕ: ${codeInput}\n`;
-            if (codeOutput) prompt += `ВЫХОДНЫЕ ДАННЫЕ: ${codeOutput}\n`;
-            if (codeLang || codeFrame || codeStyle) {
-                let tech = [];
-                if (codeLang) tech.push(`Язык: ${codeLang}`);
-                if (codeFrame) tech.push(`Фреймворк: ${codeFrame}`);
-                if (codeStyle) tech.push(`Стиль: ${codeStyle}`);
-                prompt += `ТЕХНОЛОГИИ: ${tech.join(", ")}\n`;
-            }
-            if (codeEdges) prompt += `EDGE CASES: ${codeEdges}\n`;
-            let quality = [];
-            if (typeHints) quality.push("type hints");
-            if (docstrings) quality.push("docstrings");
-            if (errors) quality.push("обработка ошибок");
-            if (tests) quality.push("тесты");
-            if (quality.length) prompt += `ТРЕБОВАНИЯ К КАЧЕСТВУ: ${quality.join(", ")}\n`;
-            if (codeExample) prompt += `ПРИМЕР (few-shot):\n${codeExample}\n`;
-            prompt += "\n";
+        // Загрузка истории
+        const savedHistory = localStorage.getItem(STORAGE_KEYS.HISTORY);
+        if (savedHistory) {
+            try {
+                history = JSON.parse(savedHistory);
+            } catch(e) {}
         }
-        
-        if (prompt === "") return "// Заполните хотя бы одно поле и нажмите «Собрать промпт»";
-        return prompt;
     }
     
-    // Кнопка "Собрать промпт" — переносит результат в окно вывода
-    const buildBtn = document.getElementById('buildBtn');
-    const promptOutput = document.getElementById('promptOutput');
+    function saveFormToStorage() {
+        const allInputs = document.querySelectorAll('input:not([type="checkbox"]), textarea, select');
+        const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+        const data = {};
+        allInputs.forEach(el => { if(el.id) data[el.id] = el.value; });
+        checkboxes.forEach(el => { if(el.id) data[el.id] = el.checked; });
+        localStorage.setItem(STORAGE_KEYS.FORM_DATA, JSON.stringify(data));
+    }
     
-    buildBtn.addEventListener('click', () => {
-        const result = generatePrompt();
-        promptOutput.innerText = result;
-        
-        // Небольшая анимация — подсветка блока
-        promptOutput.classList.add('bg-indigo-50');
-        setTimeout(() => promptOutput.classList.remove('bg-indigo-50'), 300);
-    });
+    function saveCustomPresets() {
+        localStorage.setItem(STORAGE_KEYS.CUSTOM_PRESETS, JSON.stringify(customPresets));
+    }
     
-    // Кнопка копирования
-    document.getElementById('copyBtn').addEventListener('click', async () => {
-        const text = promptOutput.innerText;
-        if (text === "// Заполните хотя бы одно поле и нажмите «Собрать промпт»") {
-            alert("Сначала соберите промпт (нажмите большую синюю кнопку)");
+    function saveHistory() {
+        // Ограничиваем историю 20 записями
+        if (history.length > 20) history = history.slice(0, 20);
+        localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(history));
+    }
+    
+    function addToHistory(promptText, type) {
+        const entry = {
+            id: Date.now(),
+            timestamp: new Date().toLocaleString(),
+            type: type,
+            prompt: promptText.length > 200 ? promptText.substring(0, 200) + '...' : promptText,
+            fullPrompt: promptText
+        };
+        history.unshift(entry);
+        if (history.length > 20) history.pop();
+        saveHistory();
+        renderHistory();
+    }
+    
+    function deleteFromHistory(id) {
+        history = history.filter(item => item.id !== id);
+        saveHistory();
+        renderHistory();
+        showToast('Запись удалена', 'info');
+    }
+    
+    function loadHistoryPrompt(fullPrompt) {
+        document.getElementById('promptOutput').innerText = fullPrompt;
+        if (typeof hljs !== 'undefined') hljs.highlightElement(document.getElementById('promptOutput'));
+        updateCharCount();
+        showToast('Промпт загружен из истории', 'success');
+    }
+    
+    function renderHistory() {
+        const container = document.getElementById('historyContainer');
+        if (!container) return;
+        if (history.length === 0) {
+            container.innerHTML = '<div class="text-gray-400 text-sm text-center py-2">Пока ничего нет. Соберите промпт, и он появится здесь.</div>';
             return;
         }
-        try {
-            await navigator.clipboard.writeText(text);
-            const btn = document.getElementById('copyBtn');
-            const originalText = btn.innerText;
-            btn.innerText = '✅ Скопировано!';
-            setTimeout(() => btn.innerText = originalText, 2000);
-        } catch (err) {
-            alert('Не удалось скопировать, но можно выделить текст вручную');
+        container.innerHTML = history.map(item => `
+            <div class="history-item bg-gray-50 rounded-lg p-2 text-sm cursor-pointer hover:bg-gray-100 flex justify-between items-start gap-2" data-history-id="${item.id}">
+                <div class="flex-1 min-w-0">
+                    <div class="text-xs text-gray-400">${item.timestamp} [${item.type === 'lm' ? '💬' : item.type === 'img' ? '🎨' : '💻'}]</div>
+                    <div class="text-gray-700 truncate">${escapeHtml(item.prompt)}</div>
+                </div>
+                <button class="delete-history-btn text-red-400 hover:text-red-600 text-xs px-1" data-id="${item.id}">🗑️</button>
+            </div>
+        `).join('');
+        
+        // Вешаем обработчики
+        container.querySelectorAll('.history-item').forEach(el => {
+            const id = parseInt(el.getAttribute('data-history-id'));
+            const item = history.find(h => h.id === id);
+            if (item) {
+                el.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('delete-history-btn')) return;
+                    loadHistoryPrompt(item.fullPrompt);
+                });
+            }
+        });
+        container.querySelectorAll('.delete-history-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const id = parseInt(btn.getAttribute('data-id'));
+                deleteFromHistory(id);
+            });
+        });
+    }
+    
+    // ========== ПОЛЬЗОВАТЕЛЬСКИЕ ПРЕСЕТЫ ==========
+    function saveCurrentAsPreset() {
+        const modal = document.getElementById('presetModal');
+        const input = document.getElementById('presetNameInput');
+        input.value = '';
+        modal.classList.remove('hidden');
+        
+        const saveHandler = () => {
+            const name = input.value.trim();
+            if (!name) {
+                showToast('Введите название шаблона', 'error');
+                return;
+            }
+            
+            // Собираем текущие поля активной вкладки
+            const currentContent = document.getElementById(currentActiveTab);
+            const fields = {};
+            const inputs = currentContent.querySelectorAll('input:not([type="checkbox"]), textarea, select');
+            const checkboxes = currentContent.querySelectorAll('input[type="checkbox"]');
+            inputs.forEach(el => { if(el.id) fields[el.id] = el.value; });
+            checkboxes.forEach(el => { if(el.id) fields[el.id] = el.checked; });
+            
+            // Проверяем, есть ли хоть что-то
+            if (Object.keys(fields).length === 0 || Object.values(fields).every(v => v === '' || v === false)) {
+                showToast('Заполните хотя бы одно поле перед сохранением', 'error');
+                return;
+            }
+            
+            customPresets[currentActiveType].push({ name: name, fields: fields });
+            saveCustomPresets();
+            renderCustomPresets();
+            modal.classList.add('hidden');
+            showToast(`Шаблон «${name}» сохранён`, 'success');
+        };
+        
+        const closeHandler = () => {
+            modal.classList.add('hidden');
+            document.getElementById('confirmPresetBtn').removeEventListener('click', saveHandler);
+            document.getElementById('cancelPresetBtn').removeEventListener('click', closeHandler);
+            document.getElementById('modalOverlay').removeEventListener('click', closeHandler);
+        };
+        
+        document.getElementById('confirmPresetBtn').addEventListener('click', saveHandler);
+        document.getElementById('cancelPresetBtn').addEventListener('click', closeHandler);
+        document.getElementById('modalOverlay').addEventListener('click', closeHandler);
+    }
+    
+    function deleteCustomPreset(index) {
+        if (confirm('Удалить шаблон?')) {
+            customPresets[currentActiveType].splice(index, 1);
+            saveCustomPresets();
+            renderCustomPresets();
+            showToast('Шаблон удалён', 'info');
         }
+    }
+    
+    function applyPreset(fields) {
+        for (const [fieldId, value] of Object.entries(fields)) {
+            const el = document.getElementById(fieldId);
+            if (el) {
+                if (el.type === 'checkbox') el.checked = value === true;
+                else el.value = value;
+            }
+        }
+        showToast('Шаблон применён', 'success');
+        saveFormToStorage();
+    }
+    
+    function renderCustomPresets() {
+        const container = document.getElementById('customPresetContainer');
+        if (!container) return;
+        const presetsList = customPresets[currentActiveType] || [];
+        if (presetsList.length === 0) {
+            container.innerHTML = '<span class="text-xs text-gray-400 italic">Нет сохранённых шаблонов</span>';
+            return;
+        }
+        container.innerHTML = presetsList.map((p, idx) => `
+            <div class="custom-preset-btn inline-flex items-center gap-1 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded px-2 py-1 text-xs transition" data-preset-index="${idx}">
+                🔖 ${escapeHtml(p.name)}
+                <button class="delete-preset text-purple-400 hover:text-red-500 ml-1" data-index="${idx}">✕</button>
+            </div>
+        `).join('');
+        
+        container.querySelectorAll('.custom-preset-btn').forEach(btn => {
+            const idx = parseInt(btn.getAttribute('data-preset-index'));
+            btn.addEventListener('click', (e) => {
+                if (e.target.classList.contains('delete-preset')) return;
+                applyPreset(customPresets[currentActiveType][idx].fields);
+            });
+        });
+        container.querySelectorAll('.delete-preset').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const idx = parseInt(btn.getAttribute('data-index'));
+                deleteCustomPreset(idx);
+            });
+        });
+    }
+    
+    function renderBuiltInPresets() {
+        const container = document.getElementById('presetContainer');
+        if (!container) return;
+        const list = builtInPresets[currentActiveType] || [];
+        container.innerHTML = list.map(p => `<button class="preset-btn text-xs bg-white hover:bg-gray-200 border rounded px-2 py-1 transition" data-preset-name="${p.name}">${p.name}</button>`).join('');
+        container.querySelectorAll('.preset-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const name = btn.getAttribute('data-preset-name');
+                const preset = builtInPresets[currentActiveType]?.find(p => p.name === name);
+                if (preset) applyPreset(preset.fields);
+            });
+        });
+    }
+    
+    // ========== ОСТАЛЬНЫЕ ФУНКЦИИ ==========
+    function showToast(message, type = 'success') {
+        const container = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+        const colors = { success: 'bg-green-500', error: 'bg-red-500', warning: 'bg-yellow-500', info: 'bg-blue-500' };
+        toast.className = `${colors[type]} text-white px-4 py-2 rounded-lg shadow-lg toast text-sm`;
+        toast.innerText = message;
+        container.appendChild(toast);
+        setTimeout(() => {
+            toast.style.animation = 'slideOut 0.3s ease-out forwards';
+            setTimeout(() => toast.remove(), 300);
+        }, 2000);
+    }
+    
+    function clearCurrentTab() {
+        const cur = document.getElementById(currentActiveTab);
+        if (!cur) return;
+        cur.querySelectorAll('input:not([type="checkbox"]), textarea').forEach(i => i.value = '');
+        cur.querySelectorAll('select').forEach(s => s.value = '');
+        cur.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = false);
+        saveFormToStorage();
+        showToast(`Очищена вкладка`, 'info');
+    }
+    
+    function clearAllTabs() {
+        document.querySelectorAll('input:not([type="checkbox"]), textarea').forEach(i => i.value = '');
+        document.querySelectorAll('select').forEach(s => s.value = '');
+        document.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = false);
+        saveFormToStorage();
+        showToast('Очищено всё', 'warning');
+    }
+    
+    function clearHistory() {
+        if (confirm('Очистить всю историю промптов?')) {
+            history = [];
+            saveHistory();
+            renderHistory();
+            showToast('История очищена', 'info');
+        }
+    }
+    
+    function escapeHtml(str) { return str.replace(/[&<>]/g, function(m) { if(m === '&') return '&amp;'; if(m === '<') return '&lt;'; if(m === '>') return '&gt;'; return m; }); }
+    
+    function generatePrompt() {
+        if (currentActiveType === 'lm') {
+            let r=document.getElementById('lm_role').value.trim(), t=document.getElementById('lm_task').value.trim(), i=document.getElementById('lm_input').value.trim(), f=document.getElementById('lm_format').value.trim(), v=document.getElementById('lm_volume').value.trim(), s=document.getElementById('lm_style').value.trim(), m=document.getElementById('lm_method').value, sa=document.getElementById('lm_safety').value.trim();
+            if(!r&&!t&&!i&&!f&&!v&&!s&&!m&&!sa) return null;
+            let p="# ПРОМПТ ДЛЯ ЯЗЫКОВОЙ МОДЕЛИ\n\n"; if(r) p+=`## РОЛЬ И КОНТЕКСТ\n${r}\n\n`; if(t) p+=`## КОНКРЕТНАЯ ЗАДАЧА\n${t}\n\n`; if(i) p+=`## ВХОДНЫЕ ДАННЫЕ\n${i}\n\n`; let req=[]; if(f) req.push(`Формат: ${f}`); if(v) req.push(`Объём: ${v}`); if(s) req.push(`Стиль: ${s}`); if(req.length) p+=`## ТРЕБОВАНИЯ К ОТВЕТУ\n${req.join(" / ")}\n\n`; if(m) p+=`## МЕТОД РАССУЖДЕНИЯ\n${m}\n\n`; if(sa) p+=`## ЗАЩИТА ОТ ОШИБОК\n${sa}\n\n`; return p;
+        }
+        if (currentActiveType === 'img') {
+            let o=document.getElementById('img_object').value.trim(), st=document.getElementById('img_state').value.trim(), e=document.getElementById('img_env').value.trim(), c=document.getElementById('img_composition').value.trim(), l=document.getElementById('img_light').value.trim(), sty=document.getElementById('img_style').value.trim(), p=document.getElementById('img_params').value.trim(), f=document.getElementById('img_forbidden').value.trim();
+            if(!o&&!st&&!e&&!c&&!l&&!sty&&!p&&!f) return null;
+            let pr="# ПРОМПТ ДЛЯ ГЕНЕРАЦИИ ИЗОБРАЖЕНИЙ\n\n"; if(o) pr+=`## ГЛАВНЫЙ ОБЪЕКТ\n${o}\n\n`; if(st) pr+=`## СОСТОЯНИЕ И ДЕТАЛИ\n${st}\n\n`; if(e) pr+=`## ОКРУЖЕНИЕ\n${e}\n\n`; if(c) pr+=`## КОМПОЗИЦИЯ\n${c}\n\n`; if(l) pr+=`## ОСВЕЩЕНИЕ\n${l}\n\n`; if(sty) pr+=`## СТИЛЬ И МЕДИУМ\n${sty}\n\n`; if(p) pr+=`## ПАРАМЕТРЫ\n${p}\n\n`; if(f) pr+=`## ЗАПРЕТЫ\n${f}\n\n`; return pr;
+        }
+        if (currentActiveType === 'code') {
+            let t=document.getElementById('code_task').value.trim(), sig=document.getElementById('code_sig').value.trim(), inp=document.getElementById('code_input').value.trim(), out=document.getElementById('code_output').value.trim(), lang=document.getElementById('code_lang').value.trim(), frame=document.getElementById('code_framework').value.trim(), sty=document.getElementById('code_style').value.trim(), edges=document.getElementById('code_edges').value.trim(), ex=document.getElementById('code_example').value.trim(), th=document.getElementById('code_typehints').checked, doc=document.getElementById('code_docstrings').checked, err=document.getElementById('code_errors').checked, tests=document.getElementById('code_tests').checked;
+            if(!t&&!sig&&!inp&&!out&&!lang&&!frame&&!sty&&!edges&&!ex&&!th&&!doc&&!err&&!tests) return null;
+            let p="# ПРОМПТ ДЛЯ ГЕНЕРАЦИИ КОДА\n\n"; if(t) p+=`## ЗАДАЧА\n${t}\n\n`; if(sig) p+=`## СИГНАТУРА\n${sig}\n\n`; if(inp) p+=`## ВХОДНЫЕ ДАННЫЕ\n${inp}\n\n`; if(out) p+=`## ВЫХОДНЫЕ ДАННЫЕ\n${out}\n\n`; let tech=[]; if(lang) tech.push(`Язык: ${lang}`); if(frame) tech.push(`Фреймворк: ${frame}`); if(sty) tech.push(`Стиль: ${sty}`); if(tech.length) p+=`## ТЕХНОЛОГИИ\n${tech.join(", ")}\n\n`; if(edges) p+=`## EDGE CASES\n${edges}\n\n`; let q=[]; if(th) q.push("type hints"); if(doc) q.push("docstrings"); if(err) q.push("обработка ошибок"); if(tests) q.push("тесты"); if(q.length) p+=`## ТРЕБОВАНИЯ К КАЧЕСТВУ\n${q.join(", ")}\n\n`; if(ex) p+=`## ПРИМЕР (few-shot)\n${ex}\n\n`; return p;
+        }
+        return null;
+    }
+    
+    function updateCharCount() { let t=document.getElementById('promptOutput').innerText; document.getElementById('charCount').innerHTML=`(${t.length} символов)`; }
+    
+    // Вкладки
+    const tabs = document.querySelectorAll('.tab-btn');
+    function switchTab(tabId, tabType, tabName) {
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+        document.getElementById(tabId).classList.remove('hidden');
+        tabs.forEach(btn => { btn.classList.remove('tab-active','bg-white','text-indigo-600','border-b-2','border-indigo-500'); btn.classList.add('text-gray-500'); if(btn.getAttribute('data-tab')===tabId) { btn.classList.add('tab-active','bg-white','text-indigo-600','border-b-2','border-indigo-500'); btn.classList.remove('text-gray-500'); } });
+        currentActiveTab = tabId; currentActiveType = tabType;
+        document.getElementById('activeTabName').innerText = tabName;
+        renderBuiltInPresets(); renderCustomPresets();
+    }
+    tabs.forEach(btn => { btn.classList.add('py-2','px-4'); btn.addEventListener('click', () => { switchTab(btn.getAttribute('data-tab'), btn.getAttribute('data-type'), btn.innerText.replace(/[💬🎨💻]/g,'').trim()); }); });
+    
+    // Инициализация
+    loadFromStorage();
+    switchTab('tab-lm', 'lm', 'Языковая модель');
+    
+    // Сохраняем изменения полей в localStorage
+    const allFormElements = document.querySelectorAll('input, textarea, select');
+    allFormElements.forEach(el => el.addEventListener('input', saveFormToStorage));
+    allFormElements.forEach(el => el.addEventListener('change', saveFormToStorage));
+    
+    document.getElementById('clearCurrentBtn').addEventListener('click', clearCurrentTab);
+    document.getElementById('clearAllBtn').addEventListener('click', clearAllTabs);
+    document.getElementById('clearHistoryBtn').addEventListener('click', clearHistory);
+    document.getElementById('saveAsPresetBtn').addEventListener('click', saveCurrentAsPreset);
+    
+    document.getElementById('buildBtn').addEventListener('click', () => {
+        const result = generatePrompt();
+        if (!result) { showToast(`Заполните поля в текущей вкладке`, 'error'); return; }
+        const out = document.getElementById('promptOutput');
+        out.innerText = result;
+        if (typeof hljs !== 'undefined') hljs.highlightElement(out);
+        updateCharCount();
+        addToHistory(result, currentActiveType);
+        showToast('Промпт собран и сохранён в истории!', 'success');
     });
     
-    // Пример для демонстрации (заполним пару полей, чтобы сразу было понятно)
-    document.getElementById('lm_role').value = "Ты — опытный AI-ассистент, специалист по созданию промптов.";
-    document.getElementById('lm_task').value = "Что нужно сделать: объясни, как улучшить промпт для генерации изображений. Что НЕ нужно: давать советы без конкретных примеров.";
+    document.getElementById('copyBtn').addEventListener('click', async () => {
+        const t = document.getElementById('promptOutput').innerText;
+        if (t.includes("// Заполните")) { showToast('Сначала соберите промпт', 'error'); return; }
+        await navigator.clipboard.writeText(t);
+        showToast('Скопировано!', 'success');
+    });
+    
+    document.getElementById('downloadBtn').addEventListener('click', () => {
+        const t = document.getElementById('promptOutput').innerText;
+        if (t.includes("// Заполните")) { showToast('Сначала соберите промпт', 'error'); return; }
+        const blob = new Blob([t], { type: 'text/plain' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `prompt_${currentActiveType}_${Date.now()}.txt`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+        showToast('Файл скачан', 'success');
+    });
+    
+    renderHistory();
+    if (typeof hljs !== 'undefined') hljs.highlightAll();
 </script>
-
 </body>
 </html>
